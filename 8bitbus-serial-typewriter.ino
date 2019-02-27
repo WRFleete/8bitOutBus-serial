@@ -1,5 +1,8 @@
   byte buttonEncode = 0;
   bool ASCIImode = 0;
+  byte bufferBytes[64];
+  byte bufferIndex = 0;
+  unsigned int loopCount = 0;
   //byte oldVal = 0;
 void setup() {
   Serial.begin(9600);
@@ -37,7 +40,9 @@ digitalWrite(OutputEn,HIGH);
 }
 
 void loop() {
+  loopCount ++;
 if(digitalRead(OutWrite)){
+  loopCount =0;
  if(digitalRead(OutBusB0) == 1){
     bitSet (buttonEncode,0);}else{bitClear (buttonEncode,0);}
   if(digitalRead(OutBusB1) == 1){
@@ -55,28 +60,37 @@ if(digitalRead(OutWrite)){
       if(digitalRead(OutBusB7) == 1){
     bitSet (buttonEncode,7);}else{bitClear (buttonEncode,7);} 
     
-    /*if(buttonEncode==1){
-      
-        if(digitalRead(OutBusB0) == 0){    ASCIImode = 1;Serial.println("ASCII mode");}
-      delay(1);
-      
-      
-    }
-      if(buttonEncode==2){
-      
-        if(digitalRead(OutBusB1) == 0){    ASCIImode = 0;Serial.println("Number mode");}
-      delay(1);
-      
-       
-      }*/
-    //delay (10); 
-  // put your main code here, to run repeatedly:
-//if(buttonEncode != oldVal){
-  //oldVal = buttonEncode;
-//Serial.print("Output value ");
-
-typeOut(buttonEncode,ASCIImode);
+   bufferBytes[bufferIndex] = buttonEncode;
+   bufferIndex ++;
 }
+
+if(bufferIndex >=63){
+    for(byte J = 0; J < bufferIndex; J++){
+      typeOut(bufferBytes[J],ASCIImode);}
+      bufferIndex = 0;
+    }
+
+ if(bufferBytes[0] == 1 && bufferBytes[1] == 0){
+  ASCIImode = 1;
+  bufferBytes[0] = 0;
+  bufferIndex = 0;
+  Serial.println("ASCII mode");
+  }
+  if(bufferBytes[0] == 2 && bufferBytes[1] == 0){
+  ASCIImode = 0;
+  bufferBytes[0] = 0;
+  bufferIndex = 0;
+  Serial.println("Num mode");
+  }
+
+  if(loopCount > 32767){
+    loopCount = 0;
+     for(byte J = 0; J < bufferIndex; J++){
+      typeOut(bufferBytes[J],ASCIImode);}
+      bufferIndex = 0;
+      }
+
+
 }
 
 void typeOut(byte chrCode, bool AsciiMode){
@@ -88,8 +102,10 @@ if(AsciiMode){
    digitalWrite(Strobe,LOW);
     digitalWrite(OutputEn,LOW);
     Serial.write(chrCode);
+    Serial.println();
     delay(20);}
     else{
+      //converts 8 bit value to up to 3 digits up to 255
       byte hundreds = chrCode / 100;
       byte tens = (chrCode % 100)/10;
       byte units = chrCode % 10;
@@ -99,10 +115,10 @@ if(AsciiMode){
       convertNumb[2] = units + 48;
       convertNumb[3] = 13;
       byte i = 0;
-      for(i = 0; i < 4; i++){ 
-        if(convertNumb[i] == 48 && i==0){i++;}
+      for(i = 0; i < 3; i++){ 
+        if(convertNumb[i] == 48 && i==0){i++;} //skip (leading) zeros
         if(convertNumb[i] == 48 && i==1){
-          if(convertNumb[0]<49 && convertNumb[1]==48){i++;}
+          if(convertNumb[0]<49 && convertNumb[1]==48){i++;} //except if it is part of 100 or 200
           
         
         }
