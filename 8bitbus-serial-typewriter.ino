@@ -102,7 +102,7 @@ if(AsciiMode){
    digitalWrite(Strobe,LOW);
     digitalWrite(OutputEn,LOW);
     Serial.write(chrCode);
-    Serial.println();
+    //Serial.println();
     delay(20);}
     else{
       //converts 8 bit value to up to 3 digits up to 255
