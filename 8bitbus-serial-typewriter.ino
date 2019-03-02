@@ -1,10 +1,12 @@
-  byte buttonEncode = 0;
+    byte buttonEncode = 0;
   bool ASCIImode = 0;
-  byte bufferBytes[64];
-  byte bufferIndex = 0;
+  //bool bootStrapDet = 0;
+  byte bufferBytes[1024];
+  int bufferIndex = 0;
   unsigned int loopCount = 0;
   //byte oldVal = 0;
 void setup() {
+  bufferBytes[1] = 255;
   Serial.begin(9600);
   // put your setup code here, to run once:
 #define DataPin 9
@@ -42,7 +44,7 @@ digitalWrite(OutputEn,HIGH);
 void loop() {
   loopCount ++;
 if(digitalRead(OutWrite)){
-  loopCount =0;
+    loopCount =0;
  if(digitalRead(OutBusB0) == 1){
     bitSet (buttonEncode,0);}else{bitClear (buttonEncode,0);}
   if(digitalRead(OutBusB1) == 1){
@@ -62,14 +64,21 @@ if(digitalRead(OutWrite)){
     
    bufferBytes[bufferIndex] = buttonEncode;
    bufferIndex ++;
+
 }
 
-if(bufferIndex >=63){
-    for(byte J = 0; J < bufferIndex; J++){
+if(bufferIndex >=1023){
+    for(int J = 0; J < bufferIndex; J++){
+      //if(bootStrapDet){J = 248; bootStrapDet = 0;}
       typeOut(bufferBytes[J],ASCIImode);}
       bufferIndex = 0;
     }
-
+ /**if(bufferBytes[0] == 0 && bufferBytes[247] == 247){
+  bootStrapDet = 1;
+    Serial.println("bootstrapping");
+    bufferBytes[0] = 255;
+  }//else{bootStrapDet = 0;}**/
+  
  if(bufferBytes[0] == 1 && bufferBytes[1] == 0){
   ASCIImode = 1;
   bufferBytes[0] = 0;
@@ -85,7 +94,8 @@ if(bufferIndex >=63){
 
   if(loopCount > 32767){
     loopCount = 0;
-     for(byte J = 0; J < bufferIndex; J++){
+     for(int J = 0; J < bufferIndex; J++){
+     // if(bootStrapDet){J = 248; bootStrapDet = 0;}
       typeOut(bufferBytes[J],ASCIImode);}
       bufferIndex = 0;
       }
