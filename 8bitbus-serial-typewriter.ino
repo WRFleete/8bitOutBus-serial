@@ -63,7 +63,8 @@ if(digitalRead(OutWrite)){
     bitSet (buttonEncode,7);}else{bitClear (buttonEncode,7);} 
     
    bufferBytes[bufferIndex] = buttonEncode;
-   bufferIndex ++;
+   if(!digitalRead(OutWrite)){
+   bufferIndex ++;}
 
 }
 
