@@ -1,6 +1,6 @@
     byte buttonEncode = 0;
   bool ASCIImode = 0;
-  //bool bootStrapDet = 0;
+  bool bootStrapDet = 0;
   byte bufferBytes[1024];
   int bufferIndex = 0;
   unsigned int loopCount = 0;
@@ -69,42 +69,35 @@ if(digitalRead(OutWrite)){
 }
 
 if(bufferIndex >=1023){
+ASCIImode = checkAsciiMode();
+bootStrapDet = bootStrapDetect();
     for(int J = 0; J < bufferIndex; J++){
-      //if(bootStrapDet){J = 248; bootStrapDet = 0;}
+      if(bootStrapDet){J = 248; bootStrapDet = 0;}
       typeOut(bufferBytes[J],ASCIImode);}
       bufferIndex = 0;
     }
- /**if(bufferBytes[0] == 0 && bufferBytes[247] == 247){
-  bootStrapDet = 1;
-    Serial.println("bootstrapping");
-    bufferBytes[0] = 255;
-  }//else{bootStrapDet = 0;}**/
+ /****/
   
- if(bufferBytes[0] == 1 && bufferBytes[1] == 0){
-  ASCIImode = 1;
-  bufferBytes[0] = 0;
-  bufferIndex = 0;
-  Serial.println("ASCII mode");
-  }
-  if(bufferBytes[0] == 2 && bufferBytes[1] == 0){
-  ASCIImode = 0;
-  bufferBytes[0] = 0;
-  bufferIndex = 0;
-  Serial.println("Num mode");
-  }
+
 
   if(loopCount > 32767){
     loopCount = 0;
+    if(bufferIndex > 0){
+  ASCIImode = checkAsciiMode();
+  bootStrapDet = bootStrapDetect();
      for(int J = 0; J < bufferIndex; J++){
-     // if(bootStrapDet){J = 248; bootStrapDet = 0;}
+
+      if(bootStrapDet){J = 248; bootStrapDet = 0;}
       typeOut(bufferBytes[J],ASCIImode);}
       bufferIndex = 0;
+      }
       }
 
 
 }
 
 void typeOut(byte chrCode, bool AsciiMode){
+ 
   digitalWrite(OutputEn,HIGH);
  
 if(AsciiMode){
@@ -148,4 +141,37 @@ if(AsciiMode){
     delay(10);
     digitalWrite(OutputEn,HIGH);
       //delay(250);
+  }
+
+ bool checkAsciiMode(){
+    if(bufferBytes[0] == 1 && bufferBytes[1] == 0){
+       bufferBytes[0] = 255;
+       //bufferIndex = 0;
+    Serial.println("ASCII mode");
+    return 1;
+
+
+  }
+  
+  if(bufferBytes[0] == 2 && bufferBytes[1] == 0){
+      bufferBytes[0] = 255;
+      
+    Serial.println("Num mode");
+    return 0;
+
+
+
+  }else{return 0;}
+
+  
+  }
+
+  bool bootStrapDetect(){
+    if(bufferBytes[0] == 0 && bufferBytes[247] == 247){
+  Serial.println("bootstrapping detected");
+    //bufferBytes[0] = 255;
+  return 1;
+    
+  }else{return 0;}
+  
   }
