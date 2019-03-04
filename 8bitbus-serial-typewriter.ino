@@ -1,5 +1,6 @@
-    byte buttonEncode = 0;
+  byte buttonEncode = 0;
   bool ASCIImode = 0;
+  bool modeTrig = 0;
   bool bootStrapDet = 0;
   byte bufferBytes[1024];
   int bufferIndex = 0;
@@ -69,10 +70,15 @@ if(digitalRead(OutWrite)){
 }
 
 if(bufferIndex >=1023){
-ASCIImode = checkAsciiMode();
+
+
 bootStrapDet = bootStrapDetect();
     for(int J = 0; J < bufferIndex; J++){
-      if(bootStrapDet){J = 248; bootStrapDet = 0;}
+       if(bootStrapDet){J = 248; bootStrapDet = 0;}
+       if(bufferBytes[J] == 1 || bufferBytes[J]== 2){
+      ASCIImode = checkAsciiMode(J);}
+      if(modeTrig){J += 2; modeTrig = 0;}
+     
       typeOut(bufferBytes[J],ASCIImode);}
       bufferIndex = 0;
     }
@@ -83,11 +89,14 @@ bootStrapDet = bootStrapDetect();
   if(loopCount > 32767){
     loopCount = 0;
     if(bufferIndex > 0){
-  ASCIImode = checkAsciiMode();
+  
   bootStrapDet = bootStrapDetect();
      for(int J = 0; J < bufferIndex; J++){
-
       if(bootStrapDet){J = 248; bootStrapDet = 0;}
+      if(bufferBytes[J] == 1 || bufferBytes[J]== 2){
+      ASCIImode = checkAsciiMode(J);}
+      if(modeTrig){ J += 2; modeTrig = 0;}
+      
       typeOut(bufferBytes[J],ASCIImode);}
       bufferIndex = 0;
       }
@@ -143,25 +152,28 @@ if(AsciiMode){
       //delay(250);
   }
 
- bool checkAsciiMode(){
-    if(bufferBytes[0] == 1 && bufferBytes[1] == 0){
-       bufferBytes[0] = 255;
+ bool checkAsciiMode(int location){
+    if(bufferBytes[location] == 1 && bufferBytes[location + 1] == 0){
+       //bufferBytes[0] = 255;
        //bufferIndex = 0;
+       modeTrig = 1;
     Serial.println("ASCII mode");
     return 1;
 
 
   }
   
-  if(bufferBytes[0] == 2 && bufferBytes[1] == 0){
-      bufferBytes[0] = 255;
+  if(bufferBytes[location] == 2 && bufferBytes[location + 1 ] == 0){
+      //bufferBytes[0] = 255;
       
     Serial.println("Num mode");
-    return 0;
+     modeTrig = 1;
+     return 0;
+   
 
 
 
-  }else{return 0;}
+  }else{modeTrig = 0; return 0; }
 
   
   }
