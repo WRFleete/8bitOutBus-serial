@@ -1,8 +1,16 @@
-  byte buttonEncode = 0;
+/*
+this code operates the controller that reads the 8 bits from the output bus on my Ben Eater clone CPU or other 8 bit output source
+with a clock or strobe that indicates when a byte has updated
+decoded data is essentially converted to serial (RS232 and synchronus (SPI?/shift register)) to drive either a serial terminal or
+a shift register that drives additional decoders (EEPROM + analogue switches for my ASCII to typewriter)  
+*/
+
+byte buttonEncode = 0; //throwback from when I used similar code on a different project that encoded bits into a byte
   bool ASCIImode = 0;
   bool modeTrig = 0;
   bool bootStrapDet = 0;
   byte bufferBytes[1024];
+  byte charLine = 0;
   int bufferIndex = 0;
   unsigned int loopCount = 0;
   //byte oldVal = 0;
@@ -10,19 +18,20 @@ void setup() {
   bufferBytes[1] = 255;
   Serial.begin(9600);
   // put your setup code here, to run once:
-#define DataPin 9
-#define DataClock 12
-#define Strobe 11
-#define OutputEn 10
-#define OutBusB0 13
-#define OutBusB1 2
-#define OutBusB2 3
-#define OutBusB3 4
-#define OutBusB4 5
-#define OutBusB5 6
-#define OutBusB6 7
-#define OutBusB7 8
-#define OutWrite A0
+#define DataPin 9 //shift register data pin
+#define DataClock 12 //shift register/data clock pin
+#define Strobe 11 // can be called R clock or similar
+#define OutputEn 10 // attach to the OE of the register or in my case one of the decode ROMs that isnt controlling shift
+#define OutBusB0 13 //output bus bit 0 (LSB) input
+#define OutBusB1 2  //output bus bit 1 input
+#define OutBusB2 3  //output bus bit 2 input
+#define OutBusB3 4  //output bus bit 3 input
+#define OutBusB4 5  //output bus bit 4 input
+#define OutBusB5 6  //output bus bit 5 input
+#define OutBusB6 7  //output bus bit 6 input
+#define OutBusB7 8  //output bus bit 7 (MSB) input
+#define OutWrite A0 //output latch clock control line 
+#define lineLength 65 //length of a line on the typewriter/device only; serial term unaffected
 
 pinMode(DataPin, OUTPUT);
 pinMode(DataClock, OUTPUT);
@@ -38,14 +47,17 @@ pinMode(OutBusB6, INPUT);
 pinMode(OutBusB7, INPUT);
 pinMode(OutWrite, INPUT);
 digitalWrite(OutputEn,HIGH);
-
+sendCarriageRet(); //send a CR to the typewriter if the carriage position is not known
+ shiftOut(DataPin,DataClock, MSBFIRST,0); //clear the shift reg, 
+  digitalWrite(Strobe,HIGH);
+   digitalWrite(Strobe,LOW);
 
 }
 
 void loop() {
   loopCount ++;
-if(digitalRead(OutWrite)){
-    loopCount =0;
+if(digitalRead(OutWrite)){ // if it picks up the control line pulse
+    loopCount =0; // reset the timer
  if(digitalRead(OutBusB0) == 1){
     bitSet (buttonEncode,0);}else{bitClear (buttonEncode,0);}
   if(digitalRead(OutBusB1) == 1){
@@ -63,61 +75,66 @@ if(digitalRead(OutWrite)){
       if(digitalRead(OutBusB7) == 1){
     bitSet (buttonEncode,7);}else{bitClear (buttonEncode,7);} 
     
-   bufferBytes[bufferIndex] = buttonEncode;
-   if(!digitalRead(OutWrite)){
-   bufferIndex ++;}
+   bufferBytes[bufferIndex] = buttonEncode; // store the output bus byte into the buffer
+   if(!digitalRead(OutWrite)){ //only when the control line falls
+   bufferIndex ++;} //increment the buffer index
 
 }
 
-if(bufferIndex >=1023){
+if(bufferIndex >=1023){ //if buffer is full
 
 
-bootStrapDet = bootStrapDetect();
-    for(int J = 0; J < bufferIndex; J++){
-       if(bootStrapDet){J = 248; bootStrapDet = 0;}
-       if(bufferBytes[J] == 1 || bufferBytes[J]== 2){
+bootStrapDet = bootStrapDetect(); //check if a bootstrap is detected
+    for(int J = 0; J < bufferIndex; J++){ //flush the buffer
+       if(bootStrapDet){J = 248; bootStrapDet = 0;} //skip to 248 if a bootstrap was dumped into the buffer
+       if(bufferBytes[J] == 1 || bufferBytes[J]== 2){//check which mode the routine needs to be in
       ASCIImode = checkAsciiMode(J);}
-      if(modeTrig){J += 2; modeTrig = 0;}
-     
-      typeOut(bufferBytes[J],ASCIImode);}
+      if(modeTrig){J += 2; modeTrig = 0;}// skip sending the control code bytes
+      if(bufferBytes[J] == 8){charLine --;} // backspace
+      if(bufferBytes[J] == 13){charLine = 0;} //return
+      typeOut(bufferBytes[J],ASCIImode);} //output routine
       bufferIndex = 0;
     }
- /****/
+
   
 
 
-  if(loopCount > 32767){
-    loopCount = 0;
-    if(bufferIndex > 0){
+  if(loopCount > 32767){ //if buffer routine times out (~300+ms)
+    loopCount = 0;// reset loop counter
+    if(bufferIndex > 0){ //if index is not zero (something in the buffer)
   
   bootStrapDet = bootStrapDetect();
-     for(int J = 0; J < bufferIndex; J++){
-      if(bootStrapDet){J = 248; bootStrapDet = 0;}
+     for(int J = 0; J < bufferIndex; J++){ //flush out the buffer
+      if(bootStrapDet){J = 248; bootStrapDet = 0;} //duplicate of above
       if(bufferBytes[J] == 1 || bufferBytes[J]== 2){
       ASCIImode = checkAsciiMode(J);}
       if(modeTrig){ J += 2; modeTrig = 0;}
-      
+      if(bufferBytes[J] == 8){charLine --;} // backspace, take charLine back one space
+      if(bufferBytes[J] == 13){charLine = 0;} //return, reset charLine
       typeOut(bufferBytes[J],ASCIImode);}
-      bufferIndex = 0;
+      bufferIndex = 0; //reset bufferIndex to 0 for new data
       }
       }
 
 
 }
 
-void typeOut(byte chrCode, bool AsciiMode){
+void typeOut(byte chrCode, bool AsciiMode){ //main type/serial routine
  
-  digitalWrite(OutputEn,HIGH);
- 
-if(AsciiMode){
-  shiftOut(DataPin,DataClock, MSBFIRST,chrCode);
+  digitalWrite(OutputEn,HIGH); //set shift reg/EEPROM outputs to HI-Z
+ charLine ++;
+  if (charLine >= lineLength){sendCarriageRet();}// if line has exceeded length, send a carriage return
+if(AsciiMode){ //when in ASCII mode (AsciiMode == 1)
+  
+  shiftOut(DataPin,DataClock, MSBFIRST,chrCode); //in ASCII mode, send out the raw byte, no processing required
   digitalWrite(Strobe,HIGH);
    digitalWrite(Strobe,LOW);
+    delay(60);// adjust to suit typewriter, this is the maximum speed my one can handle before dropping characters
     digitalWrite(OutputEn,LOW);
     Serial.write(chrCode);
     //Serial.println();
-    delay(20);}
-    else{
+    }
+    else{//if AsciiMode is 0 it is in numbers mode. We need to do some more stuff to it to decode into up to 3 digits 0 - 255
       //converts 8 bit value to up to 3 digits up to 255
       byte hundreds = chrCode / 100;
       byte tens = (chrCode % 100)/10;
@@ -126,64 +143,83 @@ if(AsciiMode){
       convertNumb[0] = hundreds + 48;
       convertNumb[1] = tens + 48;
       convertNumb[2] = units + 48;
-      convertNumb[3] = 13;
+      convertNumb[3] = 32; //seperator. 13 for new line(CRLF), 32 space, 44 comma.
       byte i = 0;
-      for(i = 0; i < 3; i++){ 
-        if(convertNumb[i] == 48 && i==0){i++;} //skip (leading) zeros
+      for(i = 0; i < 4; i++){ 
+        if(convertNumb[i] == 48 && i==0){i++;} //skip any (leading) zeros
         if(convertNumb[i] == 48 && i==1){
           if(convertNumb[0]<49 && convertNumb[1]==48){i++;} //except if it is part of 100 or 200
           
-        
         }
+        charLine ++; //increment charLine depending on how many characters it needed to send
+         // Serial.println(charLine);
+         if (charLine >= lineLength){sendCarriageRet();}
         Serial.write(convertNumb[i]);
         shiftOut(DataPin,DataClock, MSBFIRST,convertNumb[i]);
        
         digitalWrite(Strobe,HIGH);
         digitalWrite(Strobe,LOW);
+        delay(60);
           digitalWrite(OutputEn,LOW);
-        delay(20);
+       delay(60);
+    digitalWrite(OutputEn,HIGH);
         }
       Serial.println();
       
       
       }
-    delay(10);
+    delay(60);
     digitalWrite(OutputEn,HIGH);
       //delay(250);
   }
 
- bool checkAsciiMode(int location){
-    if(bufferBytes[location] == 1 && bufferBytes[location + 1] == 0){
+ bool checkAsciiMode(int location){ //routine to check which mode the type out routine needs
+    if(bufferBytes[location] == 1 && bufferBytes[location + 1] == 0){ //ASCII mode trigger
        //bufferBytes[0] = 255;
        //bufferIndex = 0;
-       modeTrig = 1;
-    Serial.println("ASCII mode");
+       modeTrig = 1; //mode change trigger
+    Serial.println("ASCII mode"); //comment out if using on serial and dont want these messages
     return 1;
 
 
   }
   
-  if(bufferBytes[location] == 2 && bufferBytes[location + 1 ] == 0){
+  if(bufferBytes[location] == 2 && bufferBytes[location + 1 ] == 0){ //NUM mode trigger
       //bufferBytes[0] = 255;
       
-    Serial.println("Num mode");
+    Serial.println("Num mode"); //comment out if using on serial and dont want these messages
      modeTrig = 1;
      return 0;
    
 
 
 
-  }else{modeTrig = 0; return 0; }
+  }else{modeTrig = 0; return 0; }//default action if no condition is met
 
   
   }
 
   bool bootStrapDetect(){
-    if(bufferBytes[0] == 0 && bufferBytes[247] == 247){
-  Serial.println("bootstrapping detected");
+    if(bufferBytes[0] == 0 && bufferBytes[247] == 247){//if location 0 and 247 have those numbers in it, assume a bootstrap dumped
+      
+  Serial.println("bootstrapping detected"); //comment out if using on serial and dont want these messages
     //bufferBytes[0] = 255;
   return 1;
     
   }else{return 0;}
   
   }
+
+  void sendCarriageRet(){
+    charLine = 0; //reset line counter
+    shiftOut(DataPin,DataClock, MSBFIRST,13); // send a character 13 to the typewriter decode to reset carriage
+  digitalWrite(Strobe,HIGH);
+   digitalWrite(Strobe,LOW);
+
+      digitalWrite(OutputEn,LOW);
+//         shiftOut(DataPin,DataClock, MSBFIRST,0);
+//  digitalWrite(Strobe,HIGH);
+ //  digitalWrite(Strobe,LOW);
+//    Serial.write(chrCode);
+    //Serial.println();
+    delay(250);}
