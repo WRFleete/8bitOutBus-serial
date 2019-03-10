@@ -10,7 +10,7 @@ byte buttonEncode = 0; //throwback from when I used similar code on a different 
   bool modeTrig = 0;
   bool bootStrapDet = 0;
   byte bufferBytes[1024];
-  byte charLine = 0;
+  int charLine = 0;
   int bufferIndex = 0;
   unsigned int loopCount = 0;
   //byte oldVal = 0;
@@ -109,23 +109,23 @@ bootStrapDet = bootStrapDetect(); //check if a bootstrap is detected
       if(bufferBytes[J] == 1 || bufferBytes[J]== 2){
       ASCIImode = checkAsciiMode(J);}
       if(modeTrig){ J += 2; modeTrig = 0;}
-      if(bufferBytes[J] == 8){charLine --;} // backspace, take charLine back one space
-      if(bufferBytes[J] == 13){charLine = 0;} //return, reset charLine
+      if(ASCIImode && bufferBytes[J] == 8){charLine --;} // backspace, take charLine back one space
+      if(ASCIImode && bufferBytes[J] == 13){charLine = 0;} //return, reset charLine
       typeOut(bufferBytes[J],ASCIImode);}
-      bufferIndex = 0; //reset bufferIndex to 0 for new data
+      bufferIndex = 0;
       }
       }
 
 
 }
 
-void typeOut(byte chrCode, bool AsciiMode){ //main type/serial routine
+void typeOut(byte chrCode, bool AsciiMode){
  
-  digitalWrite(OutputEn,HIGH); //set shift reg/EEPROM outputs to HI-Z
- charLine ++;
+  digitalWrite(OutputEn,HIGH);
+ 
+if(AsciiMode){
+  charLine ++;
   if (charLine >= lineLength){sendCarriageRet();}// if line has exceeded length, send a carriage return
-if(AsciiMode){ //when in ASCII mode (AsciiMode == 1)
-  
   shiftOut(DataPin,DataClock, MSBFIRST,chrCode); //in ASCII mode, send out the raw byte, no processing required
   digitalWrite(Strobe,HIGH);
    digitalWrite(Strobe,LOW);
@@ -134,8 +134,11 @@ if(AsciiMode){ //when in ASCII mode (AsciiMode == 1)
     Serial.write(chrCode);
     //Serial.println();
     }
-    else{//if AsciiMode is 0 it is in numbers mode. We need to do some more stuff to it to decode into up to 3 digits 0 - 255
+    else{//in numbers mode we need to do some more stuff to it to decode into up to 3 digits 0 - 255
       //converts 8 bit value to up to 3 digits up to 255
+     //increment charLine depending on how many characters it needed to send
+         // Serial.println(charLine);
+         
       byte hundreds = chrCode / 100;
       byte tens = (chrCode % 100)/10;
       byte units = chrCode % 10;
@@ -151,8 +154,7 @@ if(AsciiMode){ //when in ASCII mode (AsciiMode == 1)
           if(convertNumb[0]<49 && convertNumb[1]==48){i++;} //except if it is part of 100 or 200
           
         }
-        charLine ++; //increment charLine depending on how many characters it needed to send
-         // Serial.println(charLine);
+         charLine ++;
          if (charLine >= lineLength){sendCarriageRet();}
         Serial.write(convertNumb[i]);
         shiftOut(DataPin,DataClock, MSBFIRST,convertNumb[i]);
@@ -164,7 +166,10 @@ if(AsciiMode){ //when in ASCII mode (AsciiMode == 1)
        delay(60);
     digitalWrite(OutputEn,HIGH);
         }
-      Serial.println();
+        //Serial.println(charLine);
+        
+      
+      
       
       
       }
@@ -173,18 +178,18 @@ if(AsciiMode){ //when in ASCII mode (AsciiMode == 1)
       //delay(250);
   }
 
- bool checkAsciiMode(int location){ //routine to check which mode the type out routine needs
-    if(bufferBytes[location] == 1 && bufferBytes[location + 1] == 0){ //ASCII mode trigger
+ bool checkAsciiMode(int location){
+    if(bufferBytes[location] == 1 && bufferBytes[location + 1] == 0){
        //bufferBytes[0] = 255;
        //bufferIndex = 0;
-       modeTrig = 1; //mode change trigger
+       modeTrig = 1;
     Serial.println("ASCII mode"); //comment out if using on serial and dont want these messages
     return 1;
 
 
   }
   
-  if(bufferBytes[location] == 2 && bufferBytes[location + 1 ] == 0){ //NUM mode trigger
+  if(bufferBytes[location] == 2 && bufferBytes[location + 1 ] == 0){
       //bufferBytes[0] = 255;
       
     Serial.println("Num mode"); //comment out if using on serial and dont want these messages
@@ -200,8 +205,7 @@ if(AsciiMode){ //when in ASCII mode (AsciiMode == 1)
   }
 
   bool bootStrapDetect(){
-    if(bufferBytes[0] == 0 && bufferBytes[247] == 247){//if location 0 and 247 have those numbers in it, assume a bootstrap dumped
-      
+    if(bufferBytes[0] == 0 && bufferBytes[247] == 247){
   Serial.println("bootstrapping detected"); //comment out if using on serial and dont want these messages
     //bufferBytes[0] = 255;
   return 1;
@@ -211,15 +215,17 @@ if(AsciiMode){ //when in ASCII mode (AsciiMode == 1)
   }
 
   void sendCarriageRet(){
+    digitalWrite(OutputEn,HIGH);
+    Serial.println(" CRLF"); //comment out if using on serial and dont want these messages
     charLine = 0; //reset line counter
     shiftOut(DataPin,DataClock, MSBFIRST,13); // send a character 13 to the typewriter decode to reset carriage
   digitalWrite(Strobe,HIGH);
    digitalWrite(Strobe,LOW);
-
+delay(60);
       digitalWrite(OutputEn,LOW);
 //         shiftOut(DataPin,DataClock, MSBFIRST,0);
 //  digitalWrite(Strobe,HIGH);
  //  digitalWrite(Strobe,LOW);
 //    Serial.write(chrCode);
     //Serial.println();
-    delay(250);}
+    delay(250);digitalWrite(OutputEn,HIGH);}
