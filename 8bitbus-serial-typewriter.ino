@@ -32,7 +32,7 @@ void setup() {
 #define OutBusB6 7  //output bus bit 6 input
 #define OutBusB7 8  //output bus bit 7 (MSB) input
 #define OutWrite A0 //output latch clock control line 
-#define lineLength 60 //length of a line on the typewriter/device only; serial term unaffected
+#define lineLength 59 //length of a line on the typewriter/device only; serial term unaffected
 
 pinMode(DataPin, OUTPUT);
 pinMode(DataClock, OUTPUT);
@@ -56,6 +56,7 @@ sendCarriageRet(); //send a CR to the typewriter if the carriage position is not
 }
 
 void loop() {
+  digitalWrite(DataPin, LOW);
   loopCount ++;
 if(digitalRead(OutWrite)){ // if it picks up the control line pulse
     loopCount =0; // reset the timer
@@ -123,19 +124,21 @@ bootStrapDet = bootStrapDetect(); //check if a bootstrap is detected
 }
 
 void typeOut(byte chrCode, bool AsciiMode, bool HexMode){
- 
+ //Serial.println(charLine);
   digitalWrite(OutputEn,HIGH);
  
 if(AsciiMode){
-  charLine ++;
-  if (charLine >= lineLength){sendCarriageRet();}// if line has exceeded length, send a carriage return
+ 
+  
   shiftOut(DataPin,DataClock, MSBFIRST,chrCode); //in ASCII mode, send out the raw byte, no processing required
   digitalWrite(Strobe,HIGH);
    digitalWrite(Strobe,LOW);
     delay(60);// adjust to suit typewriter, this is the maximum speed my one can handle before dropping characters
     digitalWrite(OutputEn,LOW);
-   
+   delay(60);// adjust to suit typewriter, this is the maximum speed my one can handle before dropping characters
+    digitalWrite(OutputEn,HIGH);
     Serial.write(chrCode);
+    if (charLine >= lineLength){sendCarriageRet();}else{charLine ++;}// if line has exceeded length, send a carriage return
     //Serial.println();
     }
     else{//in numbers mode we need to do some more stuff to it to decode into up to 3 digits 0 - 255
@@ -158,8 +161,8 @@ if(AsciiMode){
           if(convertNumb[0]<49 && convertNumb[1]==48){i++;} //except if it is part of 100 or 200
           
         }
-         charLine ++;
-         if (charLine >= lineLength){sendCarriageRet();}
+         
+         
         Serial.write(convertNumb[i]);
         shiftOut(DataPin,DataClock, MSBFIRST,convertNumb[i]);
        
@@ -169,9 +172,10 @@ if(AsciiMode){
           digitalWrite(OutputEn,LOW);
        delay(60);
     digitalWrite(OutputEn,HIGH);
+   if (charLine >= lineLength){sendCarriageRet();}else{charLine ++;}
         }
         }else{
-          
+          //hex convertor code
           byte hiNyble = chrCode / 16;
         
       byte loNyble = chrCode % 16;
@@ -179,7 +183,7 @@ if(AsciiMode){
      byte convertNumb[3];
       convertNumb[0] = hiNyble;
       convertNumb[1] = loNyble;
-      convertNumb[2] = 32;
+      convertNumb[2] = 32;  //seperator. 13 for new line(CRLF), 32 space, 44 comma.
       if(convertNumb[0] > 9){convertNumb[0] += 55; }else{convertNumb[0] += 48;}
        if(convertNumb[1] > 9){convertNumb[1] += 55; }else{convertNumb[1] += 48;}//convertNumb[3] = 32; //seperator. 13 for new line(CRLF), 32 space, 44 comma.
       byte i = 0;
@@ -189,8 +193,8 @@ if(AsciiMode){
         //  if(convertNumb[0]<49 && convertNumb[1]==48){i++;} //except if it is part of 100 or 200
           
         
-         charLine ++;
-         if (charLine >= lineLength){sendCarriageRet();}
+         
+         
         Serial.write(convertNumb[i]);
         shiftOut(DataPin,DataClock, MSBFIRST,convertNumb[i]);
        
@@ -199,7 +203,10 @@ if(AsciiMode){
         delay(60);
           digitalWrite(OutputEn,LOW);
        delay(60);
-    digitalWrite(OutputEn,HIGH);}
+    digitalWrite(OutputEn,HIGH);
+    if (charLine >= lineLength){sendCarriageRet();}else{charLine ++;}
+    }
+        
         //Serial.println(charLine);
         
       
@@ -207,21 +214,20 @@ if(AsciiMode){
       
       
       }
-    delay(60);
-  
-   
-    digitalWrite(OutputEn,HIGH);
+    
     if(AsciiMode && chrCode == 13){
-    delay(1500);}    //delay(250);
+    Serial.println();// if you're only sending a 13 to the typewriter for CRLF the terminal wont work properly, this compensates for that 
+    delay(1500);}   
     if(AsciiMode && chrCode == 8){
-    delay(500);}    //delay(250);
+    delay(500);}    
   }
 
  bool checkAsciiMode(int location){
     if(bufferBytes[location] == 1 && bufferBytes[location + 1] == 0){
-       //bufferBytes[0] = 255;
-       //bufferIndex = 0;
+
        modeTrig = 1;
+       Serial.println();
+       sendCarriageRet();
     Serial.println("ASCII mode"); //comment out if using on serial and dont want these messages
     return 1;
 
@@ -231,6 +237,8 @@ if(AsciiMode){
   if(bufferBytes[location] == 2 && bufferBytes[location + 1 ] == 0){
       //bufferBytes[0] = 255;
       hexMode = 0;
+       Serial.println();
+       sendCarriageRet();
     Serial.println("Num mode"); //comment out if using on serial and dont want these messages
      modeTrig = 1;
      return 0;
@@ -249,6 +257,8 @@ bool checkHexMode(int location){
        ASCIImode = 0;
        
        modeTrig = 1;
+        Serial.println();
+        sendCarriageRet();
     Serial.println("Hex Mode "); //comment out if using on serial and dont want these messages
     return 1;
 
@@ -261,6 +271,8 @@ bool checkHexMode(int location){
   }
   bool bootStrapDetect(){
     if(bufferBytes[0] == 0 && bufferBytes[247] == 247){
+       Serial.println();
+       sendCarriageRet();
   Serial.println("bootstrapping detected"); //comment out if using on serial and dont want these messages
     //bufferBytes[0] = 255;
   return 1;
