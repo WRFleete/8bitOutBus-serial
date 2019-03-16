@@ -48,6 +48,14 @@ pinMode(OutBusB6, INPUT);
 pinMode(OutBusB7, INPUT);
 pinMode(OutWrite, INPUT);
 digitalWrite(OutputEn,HIGH);
+   shiftOut(DataPin,DataClock, MSBFIRST,255); //"open and close the lid" to reset the carriage etc 
+  digitalWrite(Strobe,HIGH);
+   digitalWrite(Strobe,LOW);
+   
+   digitalWrite(OutputEn,LOW);
+   delay(60);
+   digitalWrite(OutputEn,HIGH);
+   delay(2000);
 sendCarriageRet(); //send a CR to the typewriter if the carriage position is not known
  shiftOut(DataPin,DataClock, MSBFIRST,0); //clear the shift reg, 
   digitalWrite(Strobe,HIGH);
