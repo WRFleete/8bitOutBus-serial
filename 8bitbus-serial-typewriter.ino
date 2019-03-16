@@ -91,7 +91,7 @@ bootStrapDet = bootStrapDetect(); //check if a bootstrap is detected
        if(bootStrapDet){J = 248; bootStrapDet = 0;} //skip to 248 if a bootstrap was dumped into the buffer
        if(bufferBytes[J] == 1 || bufferBytes[J]== 2){//check which mode the routine needs to be in
       ASCIImode = checkAsciiMode(J);}
-      if(bufferBytes[J] == 3){hexMode = checkHexMode(J);}
+      if(bufferBytes[J] == 3 && bufferBytes[J+ 1] == 0){hexMode = checkHexMode(J);}
       if(modeTrig){J += 2; modeTrig = 0;}// skip sending the control code bytes
       if(ASCIImode && bufferBytes[J] == 8){charLine --;} // backspace
       if(ASCIImode && bufferBytes[J] == 13){charLine = 0;} //return
@@ -111,7 +111,7 @@ bootStrapDet = bootStrapDetect(); //check if a bootstrap is detected
       if(bootStrapDet){J = 248; bootStrapDet = 0;} //duplicate of above
       if(bufferBytes[J] == 1 || bufferBytes[J]== 2){
       ASCIImode = checkAsciiMode(J);}
-       if(bufferBytes[J] == 3){hexMode = checkHexMode(J);}
+       if(bufferBytes[J] == 3 && bufferBytes[J+ 1] == 0){hexMode = checkHexMode(J);}
       if(modeTrig){ J += 2; modeTrig = 0;}
       if(ASCIImode && bufferBytes[J] == 8){charLine --;} // backspace, take charLine back one space
       if(ASCIImode && bufferBytes[J] == 13){charLine = 0;} //return, reset charLine
@@ -265,7 +265,7 @@ bool checkHexMode(int location){
 
   }
   
- else{modeTrig = 0; return 0; }//default action if no condition is met
+ else{modeTrig = 0; return 0;}//default action if no condition is met
 
   
   }
