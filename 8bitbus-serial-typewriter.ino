@@ -7,6 +7,8 @@ a shift register that drives additional decoders (EEPROM + analogue switches for
 
 byte buttonEncode = 0; //throwback from when I used similar code on a different project that encoded bits into a byte
   bool ASCIImode = 0;
+ const bool printAble[256]{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,0,0,
+                           0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
   bool modeTrig = 0;
   bool bootStrapDet = 0;
   bool hexMode = 0;
@@ -48,14 +50,17 @@ pinMode(OutBusB6, INPUT);
 pinMode(OutBusB7, INPUT);
 pinMode(OutWrite, INPUT);
 digitalWrite(OutputEn,HIGH);
-   shiftOut(DataPin,DataClock, MSBFIRST,255); //"open and close the lid" to reset the carriage etc 
+ shiftOut(DataPin,DataClock, MSBFIRST,255); //"open and close the lid" to reset the carriage etc 
   digitalWrite(Strobe,HIGH);
    digitalWrite(Strobe,LOW);
    
    digitalWrite(OutputEn,LOW);
+   
    delay(60);
    digitalWrite(OutputEn,HIGH);
+   digitalWrite(DataClock,HIGH);
    delay(2000);
+   digitalWrite(DataClock,LOW);
 sendCarriageRet(); //send a CR to the typewriter if the carriage position is not known
  shiftOut(DataPin,DataClock, MSBFIRST,0); //clear the shift reg, 
   digitalWrite(Strobe,HIGH);
@@ -146,8 +151,10 @@ if(AsciiMode){
    delay(60);// adjust to suit typewriter, this is the maximum speed my one can handle before dropping characters
     digitalWrite(OutputEn,HIGH);
     Serial.write(chrCode);
-    if (charLine >= lineLength){sendCarriageRet();}else{charLine ++;}// if line has exceeded length, send a carriage return
-    //Serial.println();
+    if (charLine >= lineLength){sendCarriageRet();}else{if(printAble[chrCode]){charLine ++;}}// if line has exceeded length, send a carriage return
+    //Serial.print(printAble[chrCode]);
+    //Serial.println(chrCode);
+    
     }
     else{//in numbers mode we need to do some more stuff to it to decode into up to 3 digits 0 - 255
       //converts 8 bit value to up to 3 digits up to 255
@@ -227,7 +234,11 @@ if(AsciiMode){
     Serial.println();// if you're only sending a 13 to the typewriter for CRLF the terminal wont work properly, this compensates for that 
     delay(1500);}   
     if(AsciiMode && chrCode == 8){
-    delay(500);}    
+    delay(500);} 
+
+          digitalWrite(DataClock,HIGH);
+   delay(60);
+   digitalWrite(DataClock,LOW);
   }
 
  bool checkAsciiMode(int location){
@@ -303,4 +314,6 @@ delay(60);
  //  digitalWrite(Strobe,LOW);
 //    Serial.write(chrCode);
     //Serial.println();
-    digitalWrite(OutputEn,HIGH);delay(1250);}
+    digitalWrite(OutputEn,HIGH);
+    delay(1500);
+    }
