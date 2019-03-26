@@ -9,6 +9,7 @@ byte buttonEncode = 0; //throwback from when I used similar code on a different 
   bool ASCIImode = 0;
  const bool printAble[256]{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,0,0,
                            0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+//array for printable and non-printing flags for characters (1 = printable, 0 = non-printable)
   bool modeTrig = 0;
   bool bootStrapDet = 0;
   bool hexMode = 0;
@@ -151,7 +152,8 @@ if(AsciiMode){
    delay(60);// adjust to suit typewriter, this is the maximum speed my one can handle before dropping characters
     digitalWrite(OutputEn,HIGH);
     Serial.write(chrCode);
-    if (charLine >= lineLength){sendCarriageRet();}else{if(printAble[chrCode]){charLine ++;}}// if line has exceeded length, send a carriage return
+    if (charLine >= lineLength){sendCarriageRet();}else{if(printAble[chrCode]){charLine ++;}}
+  // if line has exceeded length, send a carriage return, if it hasnt been exceeded yet and the character is "printable" increment charLine
     //Serial.print(printAble[chrCode]);
     //Serial.println(chrCode);
     
@@ -235,7 +237,7 @@ if(AsciiMode){
     delay(1500);}   
     if(AsciiMode && chrCode == 8){
     delay(500);} 
-
+//below 3 lines are purely asthetic (if you want to use the clock line as part of the activity lamp along with the data pin)
           digitalWrite(DataClock,HIGH);
    delay(60);
    digitalWrite(DataClock,LOW);
