@@ -5,7 +5,7 @@ decoded data is essentially converted to serial (RS232 and synchronus (SPI?/shif
 a shift register that drives additional decoders (EEPROM + analogue switches for my ASCII to typewriter)  
 */
 
-byte buttonEncode = 0; //throwback from when I used similar code on a different project that encoded bits into a byte
+volatile byte buttonEncode = 0; //throwback from when I used similar code on a different project that encoded bits into a byte
   bool ASCIImode = 0;
  const bool printAble[256]{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,0,0,
                            0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
@@ -13,10 +13,10 @@ byte buttonEncode = 0; //throwback from when I used similar code on a different 
   bool modeTrig = 0;
   bool bootStrapDet = 0;
   bool hexMode = 0;
-  byte bufferBytes[1024];
+  volatile byte bufferBytes[1024];
   int charLine = 0;
-  int bufferIndex = 0;
-  unsigned int loopCount = 0;
+  volatile int bufferIndex = 0;
+  volatile unsigned int loopCount = 0;
   //byte oldVal = 0;
 void setup() {
   bufferBytes[1] = 255;
@@ -27,14 +27,14 @@ void setup() {
 #define Strobe 11 // can be called R clock or similar
 #define OutputEn 10 // attach to the OE of the register or in my case one of the decode ROMs that isnt controlling shift
 #define OutBusB0 13 //output bus bit 0 (LSB) input
-#define OutBusB1 2  //output bus bit 1 input
+#define OutBusB1 A0  //output bus bit 1 input
 #define OutBusB2 3  //output bus bit 2 input
 #define OutBusB3 4  //output bus bit 3 input
 #define OutBusB4 5  //output bus bit 4 input
 #define OutBusB5 6  //output bus bit 5 input
 #define OutBusB6 7  //output bus bit 6 input
 #define OutBusB7 8  //output bus bit 7 (MSB) input
-#define OutWrite A0 //output latch clock control line 
+#define OutWrite 2 //output latch clock control line 
 #define lineLength 59 //length of a line on the typewriter/device only; serial term unaffected
 
 pinMode(DataPin, OUTPUT);
@@ -70,47 +70,15 @@ sendCarriageRet(); //send a CR to the typewriter if the carriage position is not
 }
 
 void loop() {
+  attachInterrupt(digitalPinToInterrupt(2),interruptRoutine,RISING);
   digitalWrite(DataPin, LOW);
   loopCount ++;
-if(digitalRead(OutWrite)){ // if it picks up the control line pulse
-    loopCount =0; // reset the timer
- if(digitalRead(OutBusB0) == 1){
-    bitSet (buttonEncode,0);}else{bitClear (buttonEncode,0);}
-  if(digitalRead(OutBusB1) == 1){
-    bitSet (buttonEncode,1);}else{bitClear (buttonEncode,1);}
-      if(digitalRead(OutBusB2) == 1){
-    bitSet (buttonEncode,2);}else{bitClear (buttonEncode,2);}
-      if(digitalRead(OutBusB3) == 1){
-    bitSet (buttonEncode,3);}else{bitClear (buttonEncode,3);}
-      if(digitalRead(OutBusB4) == 1){
-    bitSet (buttonEncode,4);}else{bitClear (buttonEncode,4);}
-      if(digitalRead(OutBusB5) == 1){
-    bitSet (buttonEncode,5);}else{bitClear (buttonEncode,5);}
-      if(digitalRead(OutBusB6) == 1){
-    bitSet (buttonEncode,6);}else{bitClear (buttonEncode,6);}
-      if(digitalRead(OutBusB7) == 1){
-    bitSet (buttonEncode,7);}else{bitClear (buttonEncode,7);} 
-    
-   bufferBytes[bufferIndex] = buttonEncode; // store the output bus byte into the buffer
-   if(!digitalRead(OutWrite)){ //only when the control line falls
-   bufferIndex ++;} //increment the buffer index
 
-}
 
 if(bufferIndex >=1023){ //if buffer is full
 
 
-bootStrapDet = bootStrapDetect(); //check if a bootstrap is detected
-    for(int J = 0; J < bufferIndex; J++){ //flush the buffer
-       if(bootStrapDet){J = 248; bootStrapDet = 0;} //skip to 248 if a bootstrap was dumped into the buffer
-       if(bufferBytes[J] == 1 || bufferBytes[J]== 2){//check which mode the routine needs to be in
-      ASCIImode = checkAsciiMode(J);}
-      if(bufferBytes[J] == 3 && bufferBytes[J+ 1] == 0){hexMode = checkHexMode(J);}
-      if(modeTrig){J += 2; modeTrig = 0;}// skip sending the control code bytes
-      if(ASCIImode && bufferBytes[J] == 8){charLine --;} // backspace
-      if(ASCIImode && bufferBytes[J] == 13){charLine = 0;} //return
-      typeOut(bufferBytes[J],ASCIImode,hexMode);} //output routine
-      bufferIndex = 0;
+preptoPrint();
     }
 
   
@@ -120,17 +88,7 @@ bootStrapDet = bootStrapDetect(); //check if a bootstrap is detected
     loopCount = 0;// reset loop counter
     if(bufferIndex > 0){ //if index is not zero (something in the buffer)
   
-  bootStrapDet = bootStrapDetect();
-     for(int J = 0; J < bufferIndex; J++){ //flush out the buffer
-      if(bootStrapDet){J = 248; bootStrapDet = 0;} //duplicate of above
-      if(bufferBytes[J] == 1 || bufferBytes[J]== 2){
-      ASCIImode = checkAsciiMode(J);}
-       if(bufferBytes[J] == 3 && bufferBytes[J+ 1] == 0){hexMode = checkHexMode(J);}
-      if(modeTrig){ J += 2; modeTrig = 0;}
-      if(ASCIImode && bufferBytes[J] == 8){charLine --;} // backspace, take charLine back one space
-      if(ASCIImode && bufferBytes[J] == 13){charLine = 0;} //return, reset charLine
-      typeOut(bufferBytes[J],ASCIImode,hexMode);}
-      bufferIndex = 0;
+  preptoPrint();
       }
       }
 
@@ -319,3 +277,49 @@ delay(60);
     digitalWrite(OutputEn,HIGH);
     delay(1500);
     }
+
+
+
+ void preptoPrint(){
+   bootStrapDet = bootStrapDetect(); //check if a bootstrap is detected
+    for(int J = 0; J < bufferIndex; J++){ //flush the buffer
+       if(bootStrapDet){J = 248; bootStrapDet = 0;} //skip to 248 if a bootstrap was dumped into the buffer
+       if(bufferBytes[J] == 1 || bufferBytes[J]== 2){//check which mode the routine needs to be in
+      ASCIImode = checkAsciiMode(J);}
+      if(bufferBytes[J] == 3 && bufferBytes[J+ 1] == 0){hexMode = checkHexMode(J);}
+      if(modeTrig){J += 2; modeTrig = 0;}// skip sending the control code bytes
+      if(ASCIImode && bufferBytes[J] == 8){charLine --;} // backspace
+      if(ASCIImode && bufferBytes[J] == 13){charLine = 0;} //return
+      typeOut(bufferBytes[J],ASCIImode,hexMode);} //output routine
+      bufferIndex = 0;}
+
+
+
+void interruptRoutine(){  
+  
+  
+  loopCount =0; // reset the timer
+
+ 
+    bitWrite (buttonEncode,0,digitalRead(OutBusB0));
+  
+    bitWrite (buttonEncode,1,digitalRead(OutBusB1));
+      
+    bitWrite (buttonEncode,2,digitalRead(OutBusB2));
+    
+    bitWrite (buttonEncode,3,digitalRead(OutBusB3));
+      
+    bitWrite (buttonEncode,4,digitalRead(OutBusB4));
+     
+    bitWrite (buttonEncode,5,digitalRead(OutBusB5));
+      
+    bitWrite (buttonEncode,6,digitalRead(OutBusB6));
+     
+    bitWrite (buttonEncode,7,digitalRead(OutBusB7)); 
+    
+   bufferBytes[bufferIndex] = buttonEncode; // store the output bus byte into the buffer
+  // if(!digitalRead(OutWrite)){ //only when the control line falls
+   bufferIndex ++;
+   //} //increment the buffer index
+   
+   }
